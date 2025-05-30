@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/sandbox/">
+    <Project Path="sandbox/ConsoleApp/ConsoleApp.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/CompilerBrain/CompilerBrain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CompilerBrain.Tests/CompilerBrain.Tests.csproj" />
+  </Folder>
+</Solution>
