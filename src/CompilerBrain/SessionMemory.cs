@@ -180,4 +180,16 @@ public readonly record struct SearchMatch
     public required string LineText { get; init; }
     public required string MatchedText { get; init; }
     public required CodeLocation Location { get; init; }
+    public required CodeContext Context { get; init; }
+}
+
+public readonly record struct CodeContext
+{
+    public required string? ClassName { get; init; }
+    public required string? MethodName { get; init; }
+    public required string? PropertyName { get; init; }
+    public required string? FieldName { get; init; }
+    public required string? NamespaceName { get; init; }
+    public required string SyntaxKind { get; init; }
+    public required string ContainingMember { get; init; }
 }

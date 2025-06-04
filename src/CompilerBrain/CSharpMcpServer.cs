@@ -1,5 +1,6 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.CodeAnalysis.Text;
 using ModelContextProtocol;
@@ -193,8 +194,9 @@ public static class CSharpMcpServer
         var session = memory.GetSession(sessionId);
         var compilation = session.Compilation;
 
-        var targetFilePattern = new Regex(targetFileRegex, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        var searchPattern = new Regex(searchRegex, RegexOptions.Multiline | RegexOptions.Compiled);
+        // accept user generated regex patterns so no-compiled and non-backtracking options are used.
+        var targetFilePattern = new Regex(targetFileRegex, RegexOptions.IgnoreCase | RegexOptions.NonBacktracking);
+        var searchPattern = new Regex(searchRegex, RegexOptions.Multiline | RegexOptions.NonBacktracking);
 
         var matches = new List<SearchMatch>();
 
@@ -211,12 +213,16 @@ public static class CSharpMcpServer
             {
                 var fullText = sourceText.ToString();
                 var regexMatches = searchPattern.Matches(fullText);
+                var root = syntaxTree.GetRoot();
 
                 foreach (Match match in regexMatches)
                 {
                     var textSpan = new TextSpan(match.Index, match.Length);
                     var linePosition = sourceText.Lines.GetLinePosition(match.Index);
                     var lineText = sourceText.Lines[linePosition.Line].ToString();
+
+                    // Find the syntax node that contains this match
+                    var context = AnalyzeSyntaxContext(root, match.Index);
 
                     matches.Add(new SearchMatch
                     {
@@ -225,7 +231,8 @@ public static class CSharpMcpServer
                         ColumnNumber = linePosition.Character + 1, // 1-based column number
                         LineText = lineText,
                         MatchedText = match.Value,
-                        Location = new CodeLocation(match.Index, match.Length)
+                        Location = new CodeLocation(match.Index, match.Length),
+                        Context = context
                     });
                 }
             }
@@ -235,6 +242,94 @@ public static class CSharpMcpServer
         {
             Matches = matches.ToArray(),
             TotalMatches = matches.Count
+        };
+    }
+
+    static CodeContext AnalyzeSyntaxContext(SyntaxNode root, int position)
+    {
+        var node = root.FindToken(position).Parent;
+        
+        string? className = null;
+        string? methodName = null;
+        string? propertyName = null;
+        string? fieldName = null;
+        string? namespaceName = null;
+        string syntaxKind = "Unknown";
+        string containingMember = "Global";
+
+        // Walk up the syntax tree to find containing members
+        var current = node;
+        while (current != null)
+        {
+            switch (current)
+            {
+                case NamespaceDeclarationSyntax ns:
+                    namespaceName = ns.Name.ToString();
+                    break;
+                case FileScopedNamespaceDeclarationSyntax fileNs:
+                    namespaceName = fileNs.Name.ToString();
+                    break;
+                case ClassDeclarationSyntax cls:
+                    className = cls.Identifier.ValueText;
+                    break;
+                case RecordDeclarationSyntax record:
+                    className = record.Identifier.ValueText + " (record)";
+                    break;
+                case StructDeclarationSyntax str:
+                    className = str.Identifier.ValueText + " (struct)";
+                    break;
+                case InterfaceDeclarationSyntax iface:
+                    className = iface.Identifier.ValueText + " (interface)";
+                    break;
+                case MethodDeclarationSyntax method:
+                    methodName = method.Identifier.ValueText;
+                    break;
+                case ConstructorDeclarationSyntax ctor:
+                    methodName = ".ctor";
+                    break;
+                case PropertyDeclarationSyntax prop:
+                    propertyName = prop.Identifier.ValueText;
+                    break;
+                case FieldDeclarationSyntax field when field.Declaration.Variables.Count > 0:
+                    fieldName = field.Declaration.Variables[0].Identifier.ValueText;
+                    break;
+                case LocalFunctionStatementSyntax localFunc:
+                    methodName = localFunc.Identifier.ValueText + " (local)";
+                    break;
+            }
+            current = current.Parent;
+        }
+
+        // Determine the immediate syntax kind
+        if (node != null)
+        {
+            syntaxKind = node.Kind().ToString();
+        }
+
+        // Build containing member description
+        var memberParts = new List<string>();
+        if (!string.IsNullOrEmpty(namespaceName))
+            memberParts.Add(namespaceName);
+        if (!string.IsNullOrEmpty(className))
+            memberParts.Add(className);
+        if (!string.IsNullOrEmpty(methodName))
+            memberParts.Add(methodName);
+        else if (!string.IsNullOrEmpty(propertyName))
+            memberParts.Add(propertyName);
+        else if (!string.IsNullOrEmpty(fieldName))
+            memberParts.Add(fieldName);
+
+        containingMember = memberParts.Count > 0 ? string.Join(".", memberParts) : "Global";
+
+        return new CodeContext
+        {
+            ClassName = className,
+            MethodName = methodName,
+            PropertyName = propertyName,
+            FieldName = fieldName,
+            NamespaceName = namespaceName,
+            SyntaxKind = syntaxKind,
+            ContainingMember = containingMember
         };
     }
 
