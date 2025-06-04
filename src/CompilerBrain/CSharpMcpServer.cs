@@ -1,5 +1,8 @@
-﻿using Microsoft.CodeAnalysis.CSharp;
+﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.Text;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
 
@@ -51,7 +54,7 @@ public static class CSharpMcpServer
 
         var codes = trees.Skip((page - 1) * FilesPerPage)
             .Take(FilesPerPage)
-            .Select(x => new Code
+            .Select(x => new AnalyzedCode
             {
                 FilePath = x.FilePath,
                 CodeWithoutBody = CodeCompression.RemoveBody(x)
@@ -83,19 +86,77 @@ public static class CSharpMcpServer
     // TODO: line-diff
 
     [McpServerTool, Description("Add or replace new code to current session context, returns diagnostics of compile result.")]
-    public static CodeDiagnostic[] AddOrReplaceCode(SessionMemory memory, Guid sessionId, string filePath, string code)
+    public static AddOrReplaceResult AddOrReplaceCode(SessionMemory memory, Guid sessionId, Codes[] codes)
     {
-        var session = memory.GetSession(sessionId);
-        var compilation = session.GetCompilation();
+        try
+        {
+            var session = memory.GetSession(sessionId);
+            var compilation = session.GetCompilation();
 
-        var syntaxTree = CSharpSyntaxTree.ParseText(code, path: filePath); // TODO: parse options
+            if (codes.Length == 0)
+            {
+                return new AddOrReplaceResult { CodeChanges = [], Diagnostics = [] };
+            }
 
-        var existingTree = compilation.SyntaxTrees.FirstOrDefault(x => x.FilePath == filePath);
-        var newCompilation = (existingTree == null)
-            ? compilation.AddSyntaxTrees(syntaxTree)
-            : compilation.ReplaceSyntaxTree(existingTree, syntaxTree);
-        session.SetCompilation(newCompilation);
+            Compilation newCompilation = default!;
+            List<CodeChange> codeChanges = new();
+            foreach (var item in codes)
+            {
+                var code = item.Code;
+                var filePath = item.FilePath;
 
-        return CodeDiagnostic.Errors(newCompilation.GetDiagnostics());
+                var oldTree = compilation.SyntaxTrees.FirstOrDefault(x => x.FilePath == filePath);
+
+                if (oldTree != null)
+                {
+                    // apply same line-break
+                    var lineBreak = oldTree.GetLineBreakFromFirstLine();
+                    code = code.ReplaceLineEndings(lineBreak);
+
+                    var newTree = oldTree.WithChangedText(SourceText.From(code));
+                    var changes = newTree.GetChanges(oldTree);
+
+                    var lineChanges = new LineChanges[changes.Count];
+                    var i = 0;
+                    foreach (var change in changes)
+                    {
+                        var changeText = GetLineText(oldTree, change.Span);
+                        lineChanges[i++] = new LineChanges { RemoveLine = changeText.ToString(), AddLine = change.NewText };
+                    }
+
+                    codeChanges.Add(new CodeChange { FilePath = filePath, LineChanges = lineChanges });
+                    newCompilation = compilation.ReplaceSyntaxTree(oldTree, newTree);
+                }
+                else
+                {
+                    var syntaxTree = CSharpSyntaxTree.ParseText(code, path: filePath); // TODO: parse options
+                    codeChanges.Add(new CodeChange { FilePath = filePath, LineChanges = [new LineChanges { RemoveLine = null, AddLine = code }] });
+                    newCompilation = compilation.AddSyntaxTrees(syntaxTree);
+                }
+            }
+
+            session.SetCompilation(newCompilation);
+            var diagnostics = CodeDiagnostic.Errors(newCompilation.GetDiagnostics());
+
+            var result = new AddOrReplaceResult
+            {
+                CodeChanges = codeChanges.ToArray(),
+                Diagnostics = diagnostics
+            };
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            throw new McpException(ex.Message, ex);
+        }
+    }
+
+    static SourceText GetLineText(SyntaxTree syntaxTree, TextSpan textSpan)
+    {
+        var sourceText = syntaxTree.GetText();
+        var linePositionSpan = sourceText.Lines.GetLinePositionSpan(textSpan);
+        var lineSpan = sourceText.Lines.GetTextSpan(linePositionSpan);
+        return sourceText.GetSubText(lineSpan);
     }
 }

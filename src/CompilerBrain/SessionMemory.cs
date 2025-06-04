@@ -78,17 +78,45 @@ public class CodeDiagnostic
 
 public readonly record struct CodeLocation(int Start, int Length);
 
-
-
-public class CodeStructure
+public readonly record struct CodeStructure
 {
     public required int Page { get; init; }
     public required int TotalPage { get; init; }
-    public required Code[] Codes { get; init; }
+    public required AnalyzedCode[] Codes { get; init; }
 }
 
-public class Code
+public readonly record struct AnalyzedCode
 {
     public required string FilePath { get; init; }
     public required string CodeWithoutBody { get; init; }
+}
+
+public readonly record struct Codes
+{
+    public required string FilePath { get; init; }
+    public required string Code { get; init; }
+}
+
+
+public readonly record struct AddOrReplaceResult
+{
+    public required CodeChange[] CodeChanges { get; init; }
+    public required CodeDiagnostic[] Diagnostics { get; init; }
+}
+
+public readonly record struct CodeChange
+{
+    public required string FilePath { get; init; }
+    public required LineChanges[] LineChanges { get; init; }
+}
+
+public readonly record struct LineChanges
+{
+    public required string? RemoveLine { get; init; }
+    public required string? AddLine { get; init; }
+
+    public override string ToString()
+    {
+        return "-" + RemoveLine + Environment.NewLine + "+" + AddLine;
+    }
 }
