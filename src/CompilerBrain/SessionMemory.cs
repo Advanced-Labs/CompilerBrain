@@ -1,6 +1,8 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Text.RegularExpressions;
 
 namespace CompilerBrain;
 
@@ -33,22 +35,59 @@ public class SessionMemory
 
 public class CompilerSession(DateTime startTime)
 {
+    CSharpParseOptions? parseOptions;
+    Compilation? compilation;
+
     public DateTime StartTime { get; } = startTime;
+    HashSet<SyntaxTree> newCodes = new();
 
-    public Compilation? compilation;
-
-    public Compilation GetCompilation()
+    public CSharpParseOptions ParseOptions
     {
-        if (compilation == null)
+        get
         {
-            throw new InvalidOperationException("Compilation is not set.");
+            if (parseOptions == null)
+            {
+                throw new InvalidOperationException("ParseOptions is not set.");
+            }
+            return parseOptions;
         }
-        return compilation;
+        set
+        {
+            parseOptions = value;
+        }
     }
 
-    public void SetCompilation(Compilation compilation)
+    public Compilation Compilation
     {
-        this.compilation = compilation;
+        get
+        {
+            if (compilation == null)
+            {
+                throw new InvalidOperationException("Compilation is not set.");
+            }
+            return compilation;
+        }
+        set
+        {
+            compilation = value;
+        }
+    }
+
+    public void AddNewCode(SyntaxTree syntaxTree)
+    {
+        newCodes.Add(syntaxTree);
+    }
+
+    public void RemoveNewCode(SyntaxTree syntaxTree)
+    {
+        newCodes.Remove(syntaxTree);
+    }
+
+    public SyntaxTree[] ClearNewCodes()
+    {
+        var result = newCodes.ToArray();
+        newCodes.Clear();
+        return result;
     }
 }
 
@@ -97,7 +136,6 @@ public readonly record struct Codes
     public required string Code { get; init; }
 }
 
-
 public readonly record struct AddOrReplaceResult
 {
     public required CodeChange[] CodeChanges { get; init; }
@@ -117,6 +155,29 @@ public readonly record struct LineChanges
 
     public override string ToString()
     {
-        return "-" + RemoveLine + Environment.NewLine + "+" + AddLine;
+        return (RemoveLine, AddLine) switch
+        {
+            (null, null) => "",
+            (var remove, null) => "-" + remove,
+            (null, var add) => "+" + add,
+            (var remove, var add) => "-" + remove + Environment.NewLine + "+" + add,
+        };
     }
+}
+
+// Search result structures
+public readonly record struct SearchResult
+{
+    public required SearchMatch[] Matches { get; init; }
+    public required int TotalMatches { get; init; }
+}
+
+public readonly record struct SearchMatch
+{
+    public required string FilePath { get; init; }
+    public required int LineNumber { get; init; }
+    public required int ColumnNumber { get; init; }
+    public required string LineText { get; init; }
+    public required string MatchedText { get; init; }
+    public required CodeLocation Location { get; init; }
 }

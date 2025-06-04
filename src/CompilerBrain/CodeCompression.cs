@@ -10,7 +10,8 @@ public static class CodeCompression
     {
         var root = syntaxTree.GetRoot();
         var newNode = new BodyRemovalRewriter().Visit(root);
-        return newNode.ToFullString();
+        var normalized = newNode.NormalizeWhitespace(); // cleanup
+        return normalized.ToFullString();
     }
 
     sealed class BodyRemovalRewriter : CSharpSyntaxRewriter
@@ -19,7 +20,7 @@ public static class CodeCompression
         {
             if (node.Body != null)
             {
-                var body = node.WithBody(null);
+                var body = node.WithBody(null).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
                 var triviaRemoved = body.ReplaceTrivia([.. body.GetLeadingTrivia(), .. body.GetTrailingTrivia()], (x, y) =>
                 {
                     return VisitTrivia(x);
@@ -34,7 +35,7 @@ public static class CodeCompression
         {
             if (node.Body != null)
             {
-                var body = node.WithBody(null);
+                var body = node.WithBody(null).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
                 var triviaRemoved = body.ReplaceTrivia([.. body.GetLeadingTrivia(), .. body.GetTrailingTrivia()], (x, y) =>
                 {
                     return VisitTrivia(x);
@@ -48,7 +49,7 @@ public static class CodeCompression
         {
             if (node.Body != null)
             {
-                var body = node.WithBody(null);
+                var body = node.WithBody(null).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
                 var triviaRemoved = body.ReplaceTrivia([.. body.GetLeadingTrivia(), .. body.GetTrailingTrivia()], (x, y) =>
                 {
                     return VisitTrivia(x);
