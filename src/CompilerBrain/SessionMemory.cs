@@ -193,3 +193,51 @@ public readonly record struct CodeContext
     public required string SyntaxKind { get; init; }
     public required string ContainingMember { get; init; }
 }
+
+// Symbol reference structures
+public readonly record struct SymbolReferenceResult
+{
+    public required SymbolInfo TargetSymbol { get; init; }
+    public required SymbolReference[] References { get; init; }
+    public required SymbolReference[] Implementations { get; init; }
+    public required SymbolReference[] Declarations { get; init; }
+    public required int TotalReferences { get; init; }
+    public required int TotalImplementations { get; init; }
+    public required int TotalDeclarations { get; init; }
+}
+
+public readonly record struct SymbolReference
+{
+    public required string FilePath { get; init; }
+    public required int LineNumber { get; init; }
+    public required int ColumnNumber { get; init; }
+    public required string LineText { get; init; }
+    public required string SymbolName { get; init; }
+    public required string SymbolKind { get; init; }
+    public required CodeLocation Location { get; init; }
+    public required CodeContext Context { get; init; }
+    public required string ReferenceKind { get; init; } // "Reference", "Implementation", "Declaration"
+}
+
+public readonly record struct SymbolInfo
+{
+    public required string Name { get; init; }
+    public required string FullName { get; init; }
+    public required string Kind { get; init; }
+    public required string ContainingNamespace { get; init; }
+    public required string ContainingType { get; init; }
+    public required string Assembly { get; init; }
+    public required bool IsGeneric { get; init; }
+    public required string[] TypeParameters { get; init; }
+    public required string Accessibility { get; init; }
+    public required bool IsAbstract { get; init; }
+    public required bool IsVirtual { get; init; }
+    public required bool IsSealed { get; init; }
+    public required bool IsStatic { get; init; }
+}
+
+public readonly record struct FindSymbolResult
+{
+    public required SymbolInfo[] Symbols { get; init; }
+    public required int TotalCount { get; init; }
+}

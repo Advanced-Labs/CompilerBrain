@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.CodeAnalysis.Text;
 using ModelContextProtocol;
@@ -12,7 +13,7 @@ using System.Text.RegularExpressions;
 namespace CompilerBrain;
 
 [McpServerToolType]
-public static class CSharpMcpServer
+public static partial class CSharpMcpServer
 {
     static Encoding Utf8Encoding = new UTF8Encoding(false);
 
@@ -22,10 +23,6 @@ public static class CSharpMcpServer
         return memory.CreateNewSession();
     }
 
-    // TODO: Open solution(and unit-test proj!)
-
-    // TODO: describe csproj info.
-
     [McpServerTool, Description("Open csprojct of the session context, returns diagnostics of compile result.")]
     public static async Task<CodeDiagnostic[]> OpenCsharpProject(SessionMemory memory, Guid sessionId, string projectPath)
     {
@@ -33,7 +30,6 @@ public static class CSharpMcpServer
 
         var project = await workspace.OpenProjectAsync(projectPath);
 
-        // case for targetframework's'? debug/release configuration? use latest target?
         var compilation = await project.GetCompilationAsync();
 
         if (compilation == null)
@@ -114,11 +110,8 @@ public static class CSharpMcpServer
                 var code = item.Code;
                 var filePath = item.FilePath;
 
-                var oldTree = compilation.SyntaxTrees.FirstOrDefault(x => x.FilePath == filePath);
-
-                if (oldTree != null)
+                if (compilation.SyntaxTrees.TryGet(filePath, out var oldTree))
                 {
-                    // apply same line-break
                     var lineBreak = oldTree.GetLineBreakFromFirstLine();
                     code = code.ReplaceLineEndings(lineBreak);
 
@@ -179,15 +172,6 @@ public static class CSharpMcpServer
         return result;
     }
 
-    static void RunUnitTest(SessionMemory memory, Guid sessionId)
-    {
-        // TODO: Emit inline image and reference.
-        var session = memory.GetSession(sessionId);
-
-        using var libraryStream = new MemoryStream();
-        var r = session.Compilation.Emit(libraryStream);
-    }
-
     [McpServerTool, Description("Search for code patterns using regular expressions in files matching the target file pattern.")]
     public static SearchResult SearchCodeByRegex(SessionMemory memory, Guid sessionId, string targetFileRegex, string searchRegex)
     {
@@ -200,12 +184,10 @@ public static class CSharpMcpServer
 
         var matches = new List<SearchMatch>();
 
-        // Filter syntax trees by file path pattern
         var targetTrees = compilation.SyntaxTrees
-            .Where(tree => !string.IsNullOrEmpty(tree.FilePath) && 
-                          File.Exists(tree.FilePath) && 
-                          targetFilePattern.IsMatch(Path.GetFileName(tree.FilePath)))
-            .ToArray();
+            .Where(tree => !string.IsNullOrEmpty(tree.FilePath) &&
+                          File.Exists(tree.FilePath) &&
+                          targetFilePattern.IsMatch(Path.GetFileName(tree.FilePath)));
 
         foreach (var syntaxTree in targetTrees)
         {
@@ -221,14 +203,13 @@ public static class CSharpMcpServer
                     var linePosition = sourceText.Lines.GetLinePosition(match.Index);
                     var lineText = sourceText.Lines[linePosition.Line].ToString();
 
-                    // Find the syntax node that contains this match
                     var context = AnalyzeSyntaxContext(root, match.Index);
 
                     matches.Add(new SearchMatch
                     {
                         FilePath = syntaxTree.FilePath,
-                        LineNumber = linePosition.Line + 1, // 1-based line number
-                        ColumnNumber = linePosition.Character + 1, // 1-based column number
+                        LineNumber = linePosition.Line + 1,
+                        ColumnNumber = linePosition.Character + 1,
                         LineText = lineText,
                         MatchedText = match.Value,
                         Location = new CodeLocation(match.Index, match.Length),
@@ -245,10 +226,19 @@ public static class CSharpMcpServer
         };
     }
 
+
+    static void RunUnitTest(SessionMemory memory, Guid sessionId)
+    {
+        var session = memory.GetSession(sessionId);
+
+        using var libraryStream = new MemoryStream();
+        var r = session.Compilation.Emit(libraryStream);
+    }
+
     static CodeContext AnalyzeSyntaxContext(SyntaxNode root, int position)
     {
         var node = root.FindToken(position).Parent;
-        
+
         string? className = null;
         string? methodName = null;
         string? propertyName = null;
@@ -257,7 +247,6 @@ public static class CSharpMcpServer
         string syntaxKind = "Unknown";
         string containingMember = "Global";
 
-        // Walk up the syntax tree to find containing members
         var current = node;
         while (current != null)
         {
@@ -300,13 +289,11 @@ public static class CSharpMcpServer
             current = current.Parent;
         }
 
-        // Determine the immediate syntax kind
         if (node != null)
         {
             syntaxKind = node.Kind().ToString();
         }
 
-        // Build containing member description
         var memberParts = new List<string>();
         if (!string.IsNullOrEmpty(namespaceName))
             memberParts.Add(namespaceName);
@@ -332,8 +319,6 @@ public static class CSharpMcpServer
             ContainingMember = containingMember
         };
     }
-
-    // TODO: SymbolFinder
 
     static SourceText GetLineText(SyntaxTree syntaxTree, TextSpan textSpan)
     {
