@@ -7,15 +7,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- for get AI Service API Key in debugging -->
+    <UserSecretsId>fec1613d-fcd8-4b68-a485-dc6050b571c3</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
 
+    <!-- Cysharp Libraries -->
     <PackageReference Include="ConsoleAppFramework" Version="5.7.12">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-
     <PackageReference Include="ZLinq" Version="1.5.4" />
     <PackageReference Include="ZLinq.DropInGenerator" Version="1.5.4">
       <PrivateAssets>all</PrivateAssets>
@@ -23,10 +25,15 @@
     </PackageReference>
     <PackageReference Include="ZLogger" Version="2.5.10" />
 
+    <!-- AI Libraries -->
+    <PackageReference Include="Anthropic" Version="10.4.0" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251125.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.0.0-preview.251125.1" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.0.1" />
 
+    <!-- Roslyn Libraries -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.0.0" />
-
     <!--<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.0.0" />
@@ -37,13 +44,14 @@
     <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.1" />-->
 
 
+    <!-- Others -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.0" />
 
 
   </ItemGroup>
 
   <ItemGroup>
-    <!--<Using Include="ZLinq" />
-    <Using Include="ZLinq.Linq" />-->
+    <Folder Include="Properties\" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CompilerBrain": {
+      "commandName": "Project",
+      "workingDirectory": "../../" // {SolutionDir}
+    }
+  }
+}
