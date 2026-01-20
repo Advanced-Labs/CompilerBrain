@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12.0</LangVersion>
+
+    <!-- Package Information -->
+    <PackageId>ClaudeAgentSDK</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Anthropic</Authors>
+    <Company>Anthropic</Company>
+    <Product>Claude Agent SDK for .NET</Product>
+    <Description>Official .NET SDK for Claude Code CLI - enables programmatic interaction with Claude AI through the Claude Code command-line interface.</Description>
+    <PackageTags>claude;anthropic;ai;sdk;agent;cli</PackageTags>
+    <PackageProjectUrl>https://github.com/anthropics/claude-code</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/anthropics/claude-code</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Build Configuration -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <!-- CS1591: Missing XML comment - some internal members don't need docs -->
+    <!-- CA1822: Mark members as static - instance properties for serialization/API design -->
+    <!-- CA1848: Use LoggerMessage delegates - excessive for SDK simplicity -->
+    <NoWarn>CS1591;CA1822;CA1848</NoWarn>
+
+    <!-- Output -->
+    <OutputPath>..\..\artifacts\bin\$(Configuration)\</OutputPath>
+    <DocumentationFile>..\..\artifacts\bin\$(Configuration)\ClaudeAgentSDK.xml</DocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ProcessX" Version="1.5.6" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
